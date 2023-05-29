@@ -23,6 +23,7 @@ import pprint
 import aiohttp
 import math
 import time
+from modules.logging_colors import logger
 
 ### Replace TOKEN with discord bot token, update A1111 address if necessary.
 import config
@@ -372,9 +373,9 @@ async def change_profile(ctx, character):
             ctx.bot.last_change = datetime.now()
         except discord.HTTPException as e:
             """ This exception can happen when you restart the bot and change character too fast without last_change being set """
-            logging.warning(e)
+            logger.warning(e)
         except Exception as e:
-            logging.warning(e)
+            logger.warning(e)
 
     if ctx.bot.behavior.read_chatlog:
         """  Allow bot to read recent chatlog. Might want to do this somewhere else. 
@@ -422,7 +423,7 @@ async def llm_gen(message, queues):
         user_input = user_input[mention]
         user_input["state"]["custom_stopping_strings"] += f', "{message.author.display_name}: ","{client.user.display_name}: "'
         last_resp = chatbot_wrapper_wrapper(user_input)
-        logging.info("reply sent: \"" + mention + ": {'text': '" + user_input["text"] + "', 'response': '" + last_resp + "'}\"")
+        logger.info("reply sent: \"" + mention + ": {'text': '" + user_input["text"] + "', 'response': '" + last_resp + "'}\"")
         await send_long_message(message.channel, last_resp)
         
         if bot_args.limit_history is not None and len(shared.history['visible']) > bot_args.limit_history:
@@ -446,17 +447,17 @@ async def on_ready():
     client.behavior.__dict__.update(config.behavior)
     data = get_character_data(client.user.display_name)
     client.behavior.__dict__.update(data["behavior"])
-    logging.info("bot ready")
+    logger.info("bot ready")
     await client.tree.sync()
 
 async def a1111_online(ctx):
     try:
         r = requests.get(f'{A1111}/')
         status = r.raise_for_status()
-        #logging.info(status)
+        #logger.info(status)
         return True
     except Exception as exc:
-        logging.warning(exc)
+        logger.warning(exc)
         info_embed.title = f"A1111 api is not running at {A1111}"
         info_embed.description = "Launch Automatic1111 with the `--api` commandline argument\nRead more [here](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API)"
         await ctx.reply(embed=info_embed)        
@@ -769,7 +770,7 @@ async def reset(ctx):
     info_embed.title = f"Conversation with {llamas_name} reset"
     info_embed.description = ""
     await ctx.reply(embed=info_embed)    
-    logging.info("conversation reset: {'replies': " + str(reply_count) + ", 'your_name': '" + your_name + "', 'llamas_name': '" + llamas_name + "', 'prompt': '" + prompt + "'}")
+    logger.info("conversation reset: {'replies': " + str(reply_count) + ", 'your_name': '" + your_name + "', 'llamas_name': '" + llamas_name + "', 'prompt': '" + prompt + "'}")
 
 @client.hybrid_command(description="Check the status of your reply queue position and wait time")
 async def status(ctx):
@@ -928,7 +929,7 @@ class Behavior():
         c.execute('''SELECT channel_id FROM main_channels''')
         result = c.fetchall()
         result = [int(i[0]) for i in result]
-        logging.info(f"Main channels: {result}")
+        logger.info(f"Main channels: {result}")
         if result is not []:
             self.main_channels = result
         else:
@@ -948,7 +949,7 @@ class Behavior():
             last_conversation_time = self.user_conversations[user_id]
             time_since_last_conversation = datetime.now() - last_conversation_time
             if time_since_last_conversation.total_seconds() < self.conversation_recency:
-                #logging.info(f'behavior: {user_id} is in active conversation')
+                #logger.info(f'behavior: {user_id} is in active conversation')
                 return True
             else:
                 return False
@@ -963,7 +964,7 @@ class Behavior():
         if message.author.bot and client.user.display_name.lower() in message.clean_content.lower() and message.channel.id in self.main_channels:
             """ if using this bot's name in the main channel and another bot is speaking """
             reply = self.probability_to_reply(self.reply_to_bots_when_adressed)
-            #logging.info(f'behavior: reply_to_bots_when_adressed triggered {reply=}')
+            #logger.info(f'behavior: reply_to_bots_when_adressed triggered {reply=}')
             if 'bye' in message.clean_content.lower():
                 """ if other bot is trying to say goodbye, just stop replying so it doesn't get awkward """
                 return False
@@ -981,20 +982,20 @@ class Behavior():
             """ If bot is set to only speak when spoken to and someone uses its name
                 or if is in an active conversation with the user in the main channel, we reply. 
                 This is a messy one. """
-            #logging.info(f'behavior: only_speak_when_spoken_to triggered')
+            #logger.info(f'behavior: only_speak_when_spoken_to triggered')
             return True
         else:
             reply = False 
-            #logging.info(f'behavior: only_speak_when_spoken_to triggered {reply=}')
+            #logger.info(f'behavior: only_speak_when_spoken_to triggered {reply=}')
 
         if message.author.bot and message.channel.id in self.main_channels: 
             reply = self.probability_to_reply(self.chance_to_reply_to_other_bots)
         if self.go_wild_in_channel and message.channel.id in self.main_channels: 
             reply = True
-            #logging.info(f'behavior: go_wild_in_channel {reply=}')
+            #logger.info(f'behavior: go_wild_in_channel {reply=}')
         if reply == True: 
             self.update_user_dict(message.author.id)
-            #logging.info(f'behavior: {reply=}')
+            #logger.info(f'behavior: {reply=}')
         return reply
 
     def probability_to_reply(self, probability):
@@ -1005,7 +1006,7 @@ class Behavior():
 def queue(message, user_input):
     user_id = message.author.mention
     queues.append({user_id:user_input})
-    logging.info(f'reply requested: "{user_id} asks {user_input["state"]["name2"]}: {user_input["text"]}"')
+    logger.info(f'reply requested: "{user_id} asks {user_input["state"]["name2"]}: {user_input["text"]}"')
 
 def check_num_in_queue(message):
     user = message.author.mention
