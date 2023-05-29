@@ -677,7 +677,9 @@ async def pic(ctx, prompt=None):
             prompt = prompt.replace(lora,"", prompt.count(lora)-1)
         payload["prompt"] = prompt
         
+        logger.info(f'image requested: "Image prompt: {payload}"')
         #pprint.pp(payload)
+        
         task = asyncio.ensure_future(a1111_txt2img(payload,picture_frame))
         try:
             await asyncio.wait_for(task, timeout=120)
