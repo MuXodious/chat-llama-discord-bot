@@ -23,7 +23,7 @@ import pprint
 import aiohttp
 import math
 import time
-from modules.logging_colors import logger
+#from modules.logging_colors import logger
 
 ### Replace TOKEN with discord bot token, update A1111 address if necessary.
 import config
@@ -105,10 +105,10 @@ def update_model_parameters(state, initial=False):
             value = int(value)
         elif element == "cpu_memory" and value is not None:
             value = f"{value}MiB"
-
+            
         if element in ["pre_layer"]:
             value = [value] if value > 0 else None
-
+            
         setattr(shared.args, element, value)
 
     found_positive = False
@@ -123,6 +123,7 @@ def update_model_parameters(state, initial=False):
         else:
             shared.args.gpu_memory = None
 
+#Discord Bot
 
 prompt = "This is a conversation with your Assistant. The Assistant is very helpful and is eager to chat with you and answer your questions."
 your_name = "You"
@@ -228,11 +229,10 @@ if shared.args.settings is not None and Path(shared.args.settings).exists():
 elif Path("settings.json").exists():
     settings_file = Path("settings.json")
 if settings_file is not None:
-    logger.info(f"Loading settings from {settings_file}...")
+    print(f"Loading settings from {settings_file}...")
     new_settings = json.loads(open(settings_file, "r").read())
     for item in new_settings:
         shared.settings[item] = new_settings[item]
-
         
 # Set default model settings based on settings.json
 shared.model_config['.*'] = {
@@ -246,9 +246,9 @@ shared.model_config['.*'] = {
 }
 
 shared.model_config.move_to_end('.*', last=False)  # Move to the beginning
-        
+
 # Default extensions
-extensions_module.available_extensions = utils.get_available_extensions()
+extensions_module.available_extensions = get_available_extensions()
 if shared.is_chat():
     for extension in shared.settings["chat_default_extensions"]:
         shared.args.extensions = shared.args.extensions or []
@@ -260,10 +260,9 @@ else:
         if extension not in shared.args.extensions:
             shared.args.extensions.append(extension)
 
-available_models = utils.get_available_models()
+available_models = get_available_models()
 
-#Load Extensions    
-extensions_module.available_extensions = utils.get_available_extensions()
+#Load Extensions
 if shared.args.extensions is not None and len(shared.args.extensions) > 0:
     extensions_module.load_extensions()
 
@@ -278,7 +277,7 @@ elif len(available_models) == 1:
 # Select the model from a command-line menu
 elif shared.model_name == "None" or shared.args.model_menu:
     if len(available_models) == 0:
-        logger.error("No models are available! Please download at least one.")
+        print("No models are available! Please download at least one.")
         sys.exit(0)
     else:
         print("The following models are available:\n")
@@ -342,9 +341,9 @@ async def change_profile(ctx, character):
             ctx.bot.last_change = datetime.now()
         except discord.HTTPException as e:
             """ This exception can happen when you restart the bot and change character too fast without last_change being set """
-            logger.warning(e)
+            logging.warning(e)
         except Exception as e:
-            logger.warning(e)
+            logging.warning(e)
 
     if ctx.bot.behavior.read_chatlog:
         """  Allow bot to read recent chatlog. Might want to do this somewhere else. 
@@ -392,7 +391,7 @@ async def llm_gen(message, queues):
         user_input = user_input[mention]
         user_input["state"]["custom_stopping_strings"] += f', "{message.author.display_name}: ","{client.user.display_name}: "'
         last_resp = chatbot_wrapper_wrapper(user_input)
-        logger.info("reply sent: \"" + mention + ": {'text': '" + user_input["text"] + "', 'response': '" + last_resp + "'}\"")
+        logging.info("reply sent: \"" + mention + ": {'text': '" + user_input["text"] + "', 'response': '" + last_resp + "'}\"")
         await send_long_message(message.channel, last_resp)
         
         if bot_args.limit_history is not None and len(shared.history['visible']) > bot_args.limit_history:
@@ -416,17 +415,17 @@ async def on_ready():
     client.behavior.__dict__.update(config.behavior)
     data = get_character_data(client.user.display_name)
     client.behavior.__dict__.update(data["behavior"])
-    logger.info("bot ready")
+    logging.info("bot ready")
     await client.tree.sync()
 
 async def a1111_online(ctx):
     try:
         r = requests.get(f'{A1111}/')
         status = r.raise_for_status()
-        #logger.info(status)
+        #logging.info(status)
         return True
     except Exception as exc:
-        logger.warning(exc)
+        logging.warning(exc)
         info_embed.title = f"A1111 api is not running at {A1111}"
         info_embed.description = "Launch Automatic1111 with the `--api` commandline argument\nRead more [here](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API)"
         await ctx.reply(embed=info_embed)        
@@ -646,9 +645,8 @@ async def pic(ctx, prompt=None):
             prompt = prompt.replace(lora,"", prompt.count(lora)-1)
         payload["prompt"] = prompt
         
-        logger.info(f'image requested: "Image prompt: {payload}"')
+        logging.info(f'image requested: "Image prompt: {payload}"')
         #pprint.pp(payload)
-        
         task = asyncio.ensure_future(a1111_txt2img(payload,picture_frame))
         try:
             await asyncio.wait_for(task, timeout=120)
@@ -741,7 +739,7 @@ async def reset(ctx):
     info_embed.title = f"Conversation with {llamas_name} reset"
     info_embed.description = ""
     await ctx.reply(embed=info_embed)    
-    logger.info("conversation reset: {'replies': " + str(reply_count) + ", 'your_name': '" + your_name + "', 'llamas_name': '" + llamas_name + "', 'prompt': '" + prompt + "'}")
+    logging.info("conversation reset: {'replies': " + str(reply_count) + ", 'your_name': '" + your_name + "', 'llamas_name': '" + llamas_name + "', 'prompt': '" + prompt + "'}")
 
 @client.hybrid_command(description="Check the status of your reply queue position and wait time")
 async def status(ctx):
@@ -900,7 +898,7 @@ class Behavior():
         c.execute('''SELECT channel_id FROM main_channels''')
         result = c.fetchall()
         result = [int(i[0]) for i in result]
-        logger.info(f"Main channels: {result}")
+        logging.info(f"Main channels: {result}")
         if result is not []:
             self.main_channels = result
         else:
@@ -920,7 +918,7 @@ class Behavior():
             last_conversation_time = self.user_conversations[user_id]
             time_since_last_conversation = datetime.now() - last_conversation_time
             if time_since_last_conversation.total_seconds() < self.conversation_recency:
-                #logger.info(f'behavior: {user_id} is in active conversation')
+                #logging.info(f'behavior: {user_id} is in active conversation')
                 return True
             else:
                 return False
@@ -935,7 +933,7 @@ class Behavior():
         if message.author.bot and client.user.display_name.lower() in message.clean_content.lower() and message.channel.id in self.main_channels:
             """ if using this bot's name in the main channel and another bot is speaking """
             reply = self.probability_to_reply(self.reply_to_bots_when_adressed)
-            #logger.info(f'behavior: reply_to_bots_when_adressed triggered {reply=}')
+            #logging.info(f'behavior: reply_to_bots_when_adressed triggered {reply=}')
             if 'bye' in message.clean_content.lower():
                 """ if other bot is trying to say goodbye, just stop replying so it doesn't get awkward """
                 return False
@@ -953,20 +951,20 @@ class Behavior():
             """ If bot is set to only speak when spoken to and someone uses its name
                 or if is in an active conversation with the user in the main channel, we reply. 
                 This is a messy one. """
-            #logger.info(f'behavior: only_speak_when_spoken_to triggered')
+            #logging.info(f'behavior: only_speak_when_spoken_to triggered')
             return True
         else:
             reply = False 
-            #logger.info(f'behavior: only_speak_when_spoken_to triggered {reply=}')
+            #logging.info(f'behavior: only_speak_when_spoken_to triggered {reply=}')
 
         if message.author.bot and message.channel.id in self.main_channels: 
             reply = self.probability_to_reply(self.chance_to_reply_to_other_bots)
         if self.go_wild_in_channel and message.channel.id in self.main_channels: 
             reply = True
-            #logger.info(f'behavior: go_wild_in_channel {reply=}')
+            #logging.info(f'behavior: go_wild_in_channel {reply=}')
         if reply == True: 
             self.update_user_dict(message.author.id)
-            #logger.info(f'behavior: {reply=}')
+            #logging.info(f'behavior: {reply=}')
         return reply
 
     def probability_to_reply(self, probability):
@@ -977,7 +975,7 @@ class Behavior():
 def queue(message, user_input):
     user_id = message.author.mention
     queues.append({user_id:user_input})
-    logger.info(f'reply requested: "{user_id} asks {user_input["state"]["name2"]}: {user_input["text"]}"')
+    logging.info(f'reply requested: "{user_id} asks {user_input["state"]["name2"]}: {user_input["text"]}"')
 
 def check_num_in_queue(message):
     user = message.author.mention
@@ -1025,7 +1023,7 @@ async def check_a1111_progress_3(picture_frame):
                     await picture_frame.edit(embed=info_embed)                    
                     await asyncio.sleep(1)
             except aiohttp.client_exceptions.ClientConnectionError:
-                logger.error('Connection closed, retrying in 1 seconds')
+                print('Connection closed, retrying in 1 seconds')
                 await asyncio.sleep(1)
         while progress_data["state"]["job_count"] > 0:
             try:
@@ -1044,7 +1042,7 @@ async def check_a1111_progress_3(picture_frame):
                     await picture_frame.edit(embed=info_embed)
                     await asyncio.sleep(1)
             except aiohttp.client_exceptions.ClientConnectionError:
-                logger.error('Connection closed, retrying in 1 seconds')
+                print('Connection closed, retrying in 1 seconds')
                 await asyncio.sleep(1)
 
 def check_a1111_progress_2(picture_frame):
@@ -1053,7 +1051,7 @@ def check_a1111_progress_2(picture_frame):
     while progress_data['progress'] == 0:
         progress_response = requests.get(f'{A1111}/sdapi/v1/progress')
         progress_data = progress_response.json()
-        logger.info(f'Waiting')
+        print(f'Waiting')
         if progress_data['progress'] > 0:
             break
         time.sleep(1)
@@ -1062,7 +1060,7 @@ def check_a1111_progress_2(picture_frame):
         progress_response = requests.get(f'{A1111}/sdapi/v1/progress')
         progress_data = progress_response.json()
         progress = progress_data['progress']
-        logger.info(f'Progress: {progress}%')
+        print(f'Progress: {progress}%')
         #pprint.pp(progress_data)
         # Exit loop if workload is complete
         if progress > 0.9:
@@ -1076,10 +1074,10 @@ async def check_a1111_progress():
     response = await loop.run_in_executor(None, requests.get, url)
     if response.status_code == 200:
         data = response.json()
-        logger.info(data)
+        print(data)
         return data
     else:
-        logger.error("Error:", response.status_code)
+        print("Error:", response.status_code)
         return None
 
 # if not hasattr(client, 'behavior'):
