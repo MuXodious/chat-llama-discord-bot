@@ -223,7 +223,7 @@ def get_model_specific_settings(model):
     return model_settings
 
 def list_model_elements():
-    elements = ["cpu_memory", "auto_devices", "disk", "cpu", "bf16", "load_in_8bit", "wbits", "groupsize", "model_type", "pre_layer"]
+    elements = ["cpu_memory", "auto_devices", "disk", "cpu", "bf16", "load_in_8bit", "load_in_4bit", "compute_dtype", "quant_type", "use_double_quant", "wbits", "groupsize", "model_type", "pre_layer", "threads", "n_batch", "no_mmap", "mlock", "n_gpu_layers", "n_ctx", "llama_cpp_seed"]
     for i in range(torch.cuda.device_count()):
         elements.append(f"gpu_memory_{i}")
     return elements
@@ -278,13 +278,27 @@ if shared.args.settings is not None and Path(shared.args.settings).exists():
 elif Path("settings.json").exists():
     settings_file = Path("settings.json")
 if settings_file is not None:
-    print(f"Loading settings from {settings_file}...")
+    logger.info(f"Loading settings from {settings_file}...")
     new_settings = json.loads(open(settings_file, "r").read())
     for item in new_settings:
         shared.settings[item] = new_settings[item]
 
+        
+# Set default model settings based on settings.json
+shared.model_config['.*'] = {
+    'wbits': 'None',
+    'model_type': 'None',
+    'groupsize': 'None',
+    'pre_layer': 0,
+    'mode': shared.settings['mode'],
+    'skip_special_tokens': shared.settings['skip_special_tokens'],
+    'custom_stopping_strings': shared.settings['custom_stopping_strings'],
+}
+
+shared.model_config.move_to_end('.*', last=False)  # Move to the beginning
+        
 # Default extensions
-extensions_module.available_extensions = get_available_extensions()
+extensions_module.available_extensions = utils.get_available_extensions()
 if shared.is_chat():
     for extension in shared.settings["chat_default_extensions"]:
         shared.args.extensions = shared.args.extensions or []
@@ -296,7 +310,7 @@ else:
         if extension not in shared.args.extensions:
             shared.args.extensions.append(extension)
 
-available_models = get_available_models()
+available_models = utils.get_available_models()
 
 # Model defined through --model
 if shared.args.model is not None:
@@ -309,7 +323,7 @@ elif len(available_models) == 1:
 # Select the model from a command-line menu
 elif shared.model_name == "None" or shared.args.model_menu:
     if len(available_models) == 0:
-        print("No models are available! Please download at least one.")
+        logger.error("No models are available! Please download at least one.")
         sys.exit(0)
     else:
         print("The following models are available:\n")
@@ -1056,7 +1070,7 @@ async def check_a1111_progress_3(picture_frame):
                     await picture_frame.edit(embed=info_embed)                    
                     await asyncio.sleep(1)
             except aiohttp.client_exceptions.ClientConnectionError:
-                print('Connection closed, retrying in 1 seconds')
+                logger.error('Connection closed, retrying in 1 seconds')
                 await asyncio.sleep(1)
         while progress_data["state"]["job_count"] > 0:
             try:
@@ -1075,7 +1089,7 @@ async def check_a1111_progress_3(picture_frame):
                     await picture_frame.edit(embed=info_embed)
                     await asyncio.sleep(1)
             except aiohttp.client_exceptions.ClientConnectionError:
-                print('Connection closed, retrying in 1 seconds')
+                logger.error('Connection closed, retrying in 1 seconds')
                 await asyncio.sleep(1)
 
 def check_a1111_progress_2(picture_frame):
@@ -1084,7 +1098,7 @@ def check_a1111_progress_2(picture_frame):
     while progress_data['progress'] == 0:
         progress_response = requests.get(f'{A1111}/sdapi/v1/progress')
         progress_data = progress_response.json()
-        print(f'Waiting')
+        logger.info(f'Waiting')
         if progress_data['progress'] > 0:
             break
         time.sleep(1)
@@ -1093,7 +1107,7 @@ def check_a1111_progress_2(picture_frame):
         progress_response = requests.get(f'{A1111}/sdapi/v1/progress')
         progress_data = progress_response.json()
         progress = progress_data['progress']
-        print(f'Progress: {progress}%')
+        logger.info(f'Progress: {progress}%')
         #pprint.pp(progress_data)
         # Exit loop if workload is complete
         if progress > 0.9:
@@ -1107,10 +1121,10 @@ async def check_a1111_progress():
     response = await loop.run_in_executor(None, requests.get, url)
     if response.status_code == 200:
         data = response.json()
-        print(data)
+        logger.info(data)
         return data
     else:
-        print("Error:", response.status_code)
+        logger.error("Error:", response.status_code)
         return None
 
 # if not hasattr(client, 'behavior'):
