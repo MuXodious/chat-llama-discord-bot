@@ -70,8 +70,7 @@ warnings.filterwarnings("ignore", category=UserWarning, message="You have modifi
 import modules.extensions as extensions_module
 from modules.extensions import apply_extensions
 from modules.chat import chatbot_wrapper, clear_chat_log, load_character 
-from modules import shared
-from modules import chat, utils
+from modules import shared, chat, utils
 shared.args.chat = True
 from modules.LoRA import add_lora_to_model
 from modules.models import load_model
@@ -80,7 +79,7 @@ shared.generation_lock = Lock()
 
 # Update the command-line arguments based on the interface values
 def update_model_parameters(state, initial=False):
-    elements = ui.list_model_elements()  # the names of the parameters
+    elements = list_model_elements()  # the names of the parameters
     gpu_memories = []
 
     for i, element in enumerate(elements):
@@ -88,7 +87,7 @@ def update_model_parameters(state, initial=False):
             continue
 
         value = state[element]
-        if element.startswith('gpu_memory'):
+        if element.startswith("gpu_memory"):
             gpu_memories.append(value)
             continue
 
@@ -96,18 +95,18 @@ def update_model_parameters(state, initial=False):
             continue
 
         # Setting null defaults
-        if element in ['wbits', 'groupsize', 'model_type'] and value == 'None':
+        if element in ["wbits", "groupsize", "model_type"] and value == "None":
             value = vars(shared.args_defaults)[element]
-        elif element in ['cpu_memory'] and value == 0:
+        elif element in ["cpu_memory"] and value == 0:
             value = vars(shared.args_defaults)[element]
 
         # Making some simple conversions
-        if element in ['wbits', 'groupsize', 'pre_layer']:
+        if element in ["wbits", "groupsize", "pre_layer"]:
             value = int(value)
-        elif element == 'cpu_memory' and value is not None:
+        elif element == "cpu_memory" and value is not None:
             value = f"{value}MiB"
 
-        if element in ['pre_layer']:
+        if element in ["pre_layer"]:
             value = [value] if value > 0 else None
 
         setattr(shared.args, element, value)
@@ -118,7 +117,7 @@ def update_model_parameters(state, initial=False):
             found_positive = True
             break
 
-    if not (initial and vars(shared.args)['gpu_memory'] != vars(shared.args_defaults)['gpu_memory']):
+    if not (initial and vars(shared.args)["gpu_memory"] != vars(shared.args_defaults)["gpu_memory"]):
         if found_positive:
             shared.args.gpu_memory = [f"{i}MiB" for i in gpu_memories]
         else:
